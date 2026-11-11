@@ -4,7 +4,6 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-# 保证能正确加载根包
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from myfilesync.models.task import TaskManager, TaskConfig, SyncPair
@@ -18,8 +17,8 @@ from myfilesync.utils.path_helper import check_path_validity
 class MainWindow:
     def __init__(self, root):
         self.root = root
-        self.root.title('Windows 文件夹比较与同步工具 (MyFileSync - 多对目录)')
-        self.root.geometry('1100x800')
+        self.root.title('Windows 文件夹比较与同步工具 (MyFileSync - 对称左右对比)')
+        self.root.geometry('1200x800')
 
         self.logger = SyncLogger()
         self.task_manager = TaskManager()
@@ -48,13 +47,13 @@ class MainWindow:
         ttk.Button(row_task, text='保存任务', command=self._save_task).pack(side=tk.LEFT, padx=2)
         ttk.Button(row_task, text='查看日志', command=self._show_logs).pack(side=tk.RIGHT, padx=5)
 
-        pairs_container = ttk.LabelFrame(top_frame, text=' 文件夹对列表 (每行包含一个左侧目录和一个右侧目录) ')
+        pairs_container = ttk.LabelFrame(top_frame, text=' 文件夹对列表 (左侧目录 vs 右侧目录) ')
         pairs_container.pack(fill=tk.X, padx=5, pady=5)
 
         canvas_frame = ttk.Frame(pairs_container)
         canvas_frame.pack(fill=tk.X, expand=True, padx=5, pady=5)
 
-        self.canvas = tk.Canvas(canvas_frame, height=160)
+        self.canvas = tk.Canvas(canvas_frame, height=140)
         self.pairs_inner_frame = ttk.Frame(self.canvas)
         
         self.scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview)
@@ -75,26 +74,30 @@ class MainWindow:
         self.hash_var = tk.BooleanVar(value=self.current_task.compare_by_content)
         ttk.Checkbutton(row_opt, text='启用内容校验 (SHA-256)', variable=self.hash_var).pack(side=tk.LEFT, padx=5)
 
+        # Middle Frame: Symmetric Results Table
         mid_frame = ttk.Frame(self.root)
         mid_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        columns = ('pair_idx', 'status', 'rel_path', 'left_size', 'left_mtime', 'right_size', 'right_mtime')
+        columns = ('pair_idx', 'left_name', 'left_size', 'left_mtime', 'status', 'right_name', 'right_size', 'right_mtime')
         self.tree = ttk.Treeview(mid_frame, columns=columns, show='headings', selectmode='extended')
-        self.tree.heading('pair_idx', text='目录对索引')
-        self.tree.heading('status', text='文件状态')
-        self.tree.heading('rel_path', text='相对路径')
+        
+        self.tree.heading('pair_idx', text='目录对')
+        self.tree.heading('left_name', text='左侧文件名 (相对路径)')
         self.tree.heading('left_size', text='左侧大小')
         self.tree.heading('left_mtime', text='左侧修改时间')
+        self.tree.heading('status', text='比较状态')
+        self.tree.heading('right_name', text='右侧文件名 (相对路径)')
         self.tree.heading('right_size', text='右侧大小')
         self.tree.heading('right_mtime', text='右侧修改时间')
 
-        self.tree.column('pair_idx', width=80, anchor=tk.CENTER)
+        self.tree.column('pair_idx', width=65, anchor=tk.CENTER)
+        self.tree.column('left_name', width=220, anchor=tk.W)
+        self.tree.column('left_size', width=75, anchor=tk.E)
+        self.tree.column('left_mtime', width=135, anchor=tk.CENTER)
         self.tree.column('status', width=110, anchor=tk.CENTER)
-        self.tree.column('rel_path', width=320, anchor=tk.W)
-        self.tree.column('left_size', width=80, anchor=tk.E)
-        self.tree.column('left_mtime', width=140, anchor=tk.CENTER)
-        self.tree.column('right_size', width=80, anchor=tk.E)
-        self.tree.column('right_mtime', width=140, anchor=tk.CENTER)
+        self.tree.column('right_name', width=220, anchor=tk.W)
+        self.tree.column('right_size', width=75, anchor=tk.E)
+        self.tree.column('right_mtime', width=135, anchor=tk.CENTER)
 
         scrollbar = ttk.Scrollbar(mid_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscroll=scrollbar.set)
@@ -102,6 +105,7 @@ class MainWindow:
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
+        # Bottom Frame
         bottom_frame = ttk.Frame(self.root)
         bottom_frame.pack(fill=tk.X, padx=10, pady=10)
 
@@ -140,7 +144,7 @@ class MainWindow:
 
     def _add_pair_row(self, left_val='', right_val=''):
         row_frame = ttk.Frame(self.pairs_inner_frame)
-        row_frame.pack(fill=tk.X, pady=3)
+        row_frame.pack(fill=tk.X, pady=2)
 
         ttk.Label(row_frame, text='左:', width=3).pack(side=tk.LEFT)
         l_entry = ttk.Entry(row_frame, width=42)
@@ -280,15 +284,22 @@ class MainWindow:
 
         import datetime
         for pair_idx, item in self.compared_items:
+            l_name = item.rel_path if item.left_path else ''
+            l_size_str = str(item.left_size) if item.left_path else ''
             l_time_str = datetime.datetime.fromtimestamp(item.left_mtime).strftime('%Y-%m-%d %H:%M:%S') if item.left_mtime else ''
+
+            r_name = item.rel_path if item.right_path else ''
+            r_size_str = str(item.right_size) if item.right_path else ''
             r_time_str = datetime.datetime.fromtimestamp(item.right_mtime).strftime('%Y-%m-%d %H:%M:%S') if item.right_mtime else ''
+
             self.tree.insert('', tk.END, values=(
-                '第 ' + str(pair_idx) + ' 行',
-                item.status.value,
-                item.rel_path,
-                str(item.left_size) if item.left_path else '',
+                '#' + str(pair_idx),
+                l_name,
+                l_size_str,
                 l_time_str,
-                str(item.right_size) if item.right_path else '',
+                item.status.value,
+                r_name,
+                r_size_str,
                 r_time_str
             ))
 
