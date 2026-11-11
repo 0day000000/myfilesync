@@ -90,6 +90,9 @@ class FolderScanner:
         items: List[FileItem] = []
 
         for rel_path in sorted(all_keys):
+            l_hash = ''
+            r_hash = ''
+
             if cancel_check():
                 break
 
@@ -120,11 +123,23 @@ class FolderScanner:
                         status = FileStatus.DIFFERENT
 
                 # 可选内容校验
-                if status != FileStatus.IDENTICAL and self.compare_by_content and l_path and r_path:
+                #if status != FileStatus.IDENTICAL and self.compare_by_content and l_path and r_path:
+                #    l_hash = compute_file_sha256(l_path)
+                #    r_hash = compute_file_sha256(r_path)
+                #    if l_hash and r_hash and l_hash == r_hash:
+                #        status = FileStatus.IDENTICAL
+                if self.compare_by_content and l_path and r_path:
+                    # 重新计算哈希
                     l_hash = compute_file_sha256(l_path)
                     r_hash = compute_file_sha256(r_path)
+                    
+                    # 只有当哈希一致时，强制标记为 IDENTICAL
                     if l_hash and r_hash and l_hash == r_hash:
                         status = FileStatus.IDENTICAL
+                    else:
+                        # 如果哈希不一致（或者之前判定为相同但实际不同），标记为 DIFFERENT
+                        if status == FileStatus.IDENTICAL:
+                            status = FileStatus.DIFFERENT
 
             item = FileItem(
                 rel_path=rel_path,
@@ -135,8 +150,13 @@ class FolderScanner:
                 right_size=r_size,
                 left_mtime=l_mtime,
                 right_mtime=r_mtime,
-                status=status
+                status=status,
+                left_hash=l_hash,   # 新增
+                right_hash=r_hash   # 新增
             )
+            if self.compare_by_content and status != FileStatus.IDENTICAL and l_path and r_path:
+                item.left_hash = compute_file_sha256(l_path)
+                item.right_hash = compute_file_sha256(r_path)
             items.append(item)
 
         return items

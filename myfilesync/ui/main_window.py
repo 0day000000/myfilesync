@@ -78,27 +78,28 @@ class MainWindow:
         mid_frame = ttk.Frame(self.root)
         mid_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-        columns = ('pair_idx', 'left_name', 'left_size', 'left_mtime', 'status', 'right_name', 'right_size', 'right_mtime')
+        columns = ('pair_idx', 'left_name', 'left_size', 'left_mtime', 'left_hash', 'status', 'right_name', 'right_size', 'right_mtime', 'right_hash')
         self.tree = ttk.Treeview(mid_frame, columns=columns, show='headings', selectmode='extended')
-        
         self.tree.heading('pair_idx', text='目录对')
-        self.tree.heading('left_name', text='左侧文件名 (相对路径)')
+        self.tree.heading('left_name', text='左侧文件名')
         self.tree.heading('left_size', text='左侧大小')
         self.tree.heading('left_mtime', text='左侧修改时间')
+        self.tree.heading('left_hash', text='左侧SHA256')
         self.tree.heading('status', text='比较状态')
-        self.tree.heading('right_name', text='右侧文件名 (相对路径)')
+        self.tree.heading('right_name', text='右侧文件名')
         self.tree.heading('right_size', text='右侧大小')
         self.tree.heading('right_mtime', text='右侧修改时间')
-
+        self.tree.heading('right_hash', text='右侧SHA256')
         self.tree.column('pair_idx', width=65, anchor=tk.CENTER)
         self.tree.column('left_name', width=220, anchor=tk.W)
         self.tree.column('left_size', width=75, anchor=tk.E)
         self.tree.column('left_mtime', width=135, anchor=tk.CENTER)
+        self.tree.column('left_hash', width=150, anchor=tk.CENTER)
         self.tree.column('status', width=110, anchor=tk.CENTER)
         self.tree.column('right_name', width=220, anchor=tk.W)
         self.tree.column('right_size', width=75, anchor=tk.E)
         self.tree.column('right_mtime', width=135, anchor=tk.CENTER)
-
+        self.tree.column('right_hash', width=150, anchor=tk.CENTER)
         scrollbar = ttk.Scrollbar(mid_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscroll=scrollbar.set)
 
@@ -297,10 +298,12 @@ class MainWindow:
                 l_name,
                 l_size_str,
                 l_time_str,
+                item.left_hash,
                 item.status.value,
                 r_name,
                 r_size_str,
-                r_time_str
+                r_time_str,
+                item.right_hash
             ))
 
         self.status_label.config(text='比较完成. 共找到 ' + str(len(self.compared_items)) + ' 个文件差异项.')
